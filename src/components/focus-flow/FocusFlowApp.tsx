@@ -1,6 +1,7 @@
+
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -17,6 +18,8 @@ import { SessionConfiguration } from './SessionConfiguration';
 import { MotivationalMessage } from './MotivationalMessage';
 import { DistractionModeToggle } from './DistractionModeToggle';
 import { ScreenProctorDisplay } from './ScreenProctorDisplay';
+import { YouTubePlayer } from './YouTubePlayer';
+import { PdfViewer } from './PdfViewer';
 
 const DEFAULT_SESSION_DURATION_MINUTES = 25;
 const PROMPT_FETCH_INTERVAL_MINUTES = 5; // Fetch prompt every 5 minutes of elapsed time
@@ -31,7 +34,6 @@ export default function FocusFlowApp(): React.JSX.Element {
       description: `You've completed a ${sessionDurationMinutes}-minute focus session. Great job!`,
     });
     setMotivationalMessage("Session Complete! Well done.");
-    // Potentially play a sound or other completion indicators
   }, [sessionDurationMinutes, toast]);
 
   const {
@@ -56,9 +58,21 @@ export default function FocusFlowApp(): React.JSX.Element {
   const [showSettings, setShowSettings] = useState(false);
   const [lastPromptFetchTime, setLastPromptFetchTime] = useState(0);
 
+  // Effect to pause timer when tab becomes inactive
+  useEffect(() => {
+    if (!isTabActive && isActive && !isPaused) {
+      pauseTimer();
+      toast({
+        title: "Timer Paused",
+        description: "Focus session paused because you switched tabs.",
+        duration: 5000, // Show for 5 seconds
+      });
+    }
+  }, [isTabActive, isActive, isPaused, pauseTimer, toast]);
+
   useEffect(() => {
     setDuration(sessionDurationMinutes * 60);
-    if (!isActive) { // If timer isn't running, reset message and elapsed time
+    if (!isActive) { 
       setMotivationalMessage(null);
     }
   }, [sessionDurationMinutes, setDuration, isActive]);
@@ -89,19 +103,18 @@ export default function FocusFlowApp(): React.JSX.Element {
   }, [sessionDurationMinutes, elapsedInSessionSeconds, isFetchingPrompt, toast]);
 
   useEffect(() => {
-    if (isActive && !isPaused) {
-      if (elapsedInSessionSeconds === 0 && !motivationalMessage) { // Initial prompt
+    if (isActive && !isPaused && isTabActive) { // Only fetch/update prompts if tab is active
+      if (elapsedInSessionSeconds === 0 && !motivationalMessage) { 
         fetchPrompt();
       } else {
         const elapsedMinutes = Math.floor(elapsedInSessionSeconds / 60);
         const lastFetchElapsedMinutes = Math.floor(lastPromptFetchTime / 60);
-        // Fetch new prompt if PROMPT_FETCH_INTERVAL_MINUTES have passed since last fetch
         if (elapsedMinutes > 0 && elapsedMinutes % PROMPT_FETCH_INTERVAL_MINUTES === 0 && elapsedMinutes > lastFetchElapsedMinutes) {
           fetchPrompt();
         }
       }
     }
-  }, [isActive, isPaused, elapsedInSessionSeconds, fetchPrompt, motivationalMessage, lastPromptFetchTime]);
+  }, [isActive, isPaused, isTabActive, elapsedInSessionSeconds, fetchPrompt, motivationalMessage, lastPromptFetchTime]);
   
   useEffect(() => {
     if (typeof document !== 'undefined') {
@@ -118,8 +131,15 @@ export default function FocusFlowApp(): React.JSX.Element {
       pauseTimer();
     } else {
       startTimer();
-      // If resuming or starting, and no prompt or error exists, try fetching
-      if (!motivationalMessage && !promptError && elapsedInSessionSeconds === 0) {
+      if (!isTabActive) {
+         toast({
+            title: "Tab Inactive",
+            description: "Timer started, but the tab is not active. Switch back to this tab to see progress.",
+            variant: "default",
+            duration: 7000,
+          });
+      }
+      if (!motivationalMessage && !promptError && elapsedInSessionSeconds === 0 && isTabActive) {
         fetchPrompt();
       }
     }
@@ -134,8 +154,6 @@ export default function FocusFlowApp(): React.JSX.Element {
 
   const handleDurationChange = (newDuration: number) => {
     setSessionDurationMinutes(newDuration);
-    // Timer duration is updated via useEffect on sessionDurationMinutes
-    // Reset timer state if duration changes while not active
     if (!isActive) {
         resetTimer(newDuration * 60);
         setMotivationalMessage(null);
@@ -159,7 +177,7 @@ export default function FocusFlowApp(): React.JSX.Element {
             </Button>
           </div>
         </CardHeader>
-        <CardContent className="space-y-8 p-6 pt-4">
+        <CardContent className="space-y-6 p-6 pt-4">
           {showSettings ? (
             <SessionConfiguration
               sessionDurationMinutes={sessionDurationMinutes}
@@ -180,6 +198,14 @@ export default function FocusFlowApp(): React.JSX.Element {
                 onStartPause={handleStartPause}
                 onReset={handleReset}
               />
+              
+              <Separator className="my-4" /> 
+              
+              <div className="space-y-4">
+                <YouTubePlayer />
+                <PdfViewer />
+              </div>
+
             </div>
           )}
           <Separator />
