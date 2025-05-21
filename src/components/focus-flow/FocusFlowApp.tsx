@@ -5,7 +5,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { SettingsIcon, XIcon } from 'lucide-react';
+import { SettingsIcon, XIcon, ShieldAlertIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useTimer } from '@/hooks/useTimer';
 import { useScreenVisibility } from '@/hooks/useScreenVisibility';
@@ -22,9 +22,9 @@ import { YouTubePlayer } from './YouTubePlayer';
 import { PdfViewer } from './PdfViewer';
 
 const DEFAULT_SESSION_DURATION_MINUTES = 25;
-const PROMPT_FETCH_INTERVAL_MINUTES = 5; // Fetch prompt every 5 minutes of elapsed time
+const PROMPT_FETCH_INTERVAL_MINUTES = 5; 
 const MAX_TAB_SWITCHES = 3;
-const MAX_AWAY_DURATION_MS = 2 * 60 * 1000; // 2 minutes
+const MAX_AWAY_DURATION_MS = 2 * 60 * 1000; 
 
 export default function FocusFlowApp(): React.JSX.Element {
   const { toast } = useToast();
@@ -40,7 +40,9 @@ export default function FocusFlowApp(): React.JSX.Element {
 
   const [tabSwitchCount, setTabSwitchCount] = useState(0);
   const [awayStartTime, setAwayStartTime] = useState<number | null>(null);
-  const [resetSignal, setResetSignal] = useState(0); // Used to reset child components
+  const [resetSignal, setResetSignal] = useState(0); 
+
+  const [pledgeAmount, setPledgeAmount] = useState(0);
 
   const handleTimerEnd = useCallback(() => {
     toast({
@@ -48,7 +50,7 @@ export default function FocusFlowApp(): React.JSX.Element {
       description: `You've completed a ${sessionDurationMinutes}-minute focus session. Great job!`,
     });
     setMotivationalMessage("Session Complete! Well done.");
-    setTabSwitchCount(0); // Reset tab switch count on session completion
+    setTabSwitchCount(0); 
   }, [sessionDurationMinutes, toast]);
 
   const {
@@ -65,53 +67,59 @@ export default function FocusFlowApp(): React.JSX.Element {
     onEnd: handleTimerEnd,
   });
 
-  const handleFullReset = useCallback((reason: string) => {
+  const handleFullReset = useCallback((reason: string, isViolation: boolean = false) => {
     resetTimer(sessionDurationMinutes * 60);
     setMotivationalMessage(null);
     setPromptError(null);
     setLastPromptFetchTime(0);
     setTabSwitchCount(0);
     setAwayStartTime(null);
-    setResetSignal(prev => prev + 1); // Trigger reset for children like YouTubePlayer/PdfViewer
+    setResetSignal(prev => prev + 1); 
 
-    toast({
-      title: "Session Reset",
-      description: reason,
-      variant: "destructive",
-      duration: 7000,
-    });
-  }, [resetTimer, sessionDurationMinutes, toast]);
+    if (isViolation && pledgeAmount > 0) {
+      toast({
+        title: "Pledge Forfeited!",
+        description: `Focus lost. Your pledge of ${pledgeAmount} is forfeited. ${reason}`,
+        variant: "destructive",
+        duration: 8000,
+      });
+    } else {
+      toast({
+        title: "Session Reset",
+        description: reason,
+        variant: isViolation ? "destructive" : "default",
+        duration: 7000,
+      });
+    }
+  }, [resetTimer, sessionDurationMinutes, toast, pledgeAmount]);
 
 
-  // Effect for tab visibility changes and switch counting
   useEffect(() => {
-    if (!isTabActive) { // Tab became inactive
-      if (isActive && !isPaused) { // Only if timer was running and not manually paused
+    if (!isTabActive) { 
+      if (isActive && !isPaused) { 
         pauseTimer();
         const newSwitchCount = tabSwitchCount + 1;
         setTabSwitchCount(newSwitchCount);
         setAwayStartTime(Date.now());
 
         if (newSwitchCount > MAX_TAB_SWITCHES) {
-          handleFullReset(`Exceeded maximum tab switches (${MAX_TAB_SWITCHES}). Session reset.`);
+          handleFullReset(`Exceeded maximum tab switches (${MAX_TAB_SWITCHES}). Session reset.`, true);
         } else {
           toast({
             title: "Timer Paused",
-            description: `Focus session paused. Tab switches used: ${newSwitchCount}/${MAX_TAB_SWITCHES}.`,
+            description: `Focus session paused. Tab switches used: ${newSwitchCount}/${MAX_TAB_SWITCHES}. Return within ${MAX_AWAY_DURATION_MS / 60000} min.`,
+            variant: "destructive",
             duration: 5000,
           });
         }
       }
-    } else { // Tab became active
-      if (awayStartTime) { // Indicates we were away and timer might have been auto-paused
+    } else { 
+      if (awayStartTime) { 
         const awayDuration = Date.now() - awayStartTime;
-        setAwayStartTime(null); // Clear immediately
-
-        // Check if a reset condition from MAX_AWAY_DURATION_MS was met (primarily handled by interval)
-        // Or if MAX_TAB_SWITCHES was exceeded.
-        // resetTimer sets isActive to false, so if a reset occurred, this block won't try to resume.
+        setAwayStartTime(null); 
+        
         if (isActive && isPaused && tabSwitchCount <= MAX_TAB_SWITCHES && awayDuration <= MAX_AWAY_DURATION_MS) {
-          startTimer(); // Resume timer
+          startTimer(); 
           toast({
             title: "Timer Resumed",
             description: "Welcome back! Session resumed.",
@@ -121,22 +129,18 @@ export default function FocusFlowApp(): React.JSX.Element {
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isTabActive, isActive, isPaused, pauseTimer, startTimer, toast, tabSwitchCount, awayStartTime, handleFullReset]);
-  // Dependencies for above useEffect: isTabActive, isActive, isPaused, pauseTimer, startTimer, toast, tabSwitchCount, awayStartTime, handleFullReset, MAX_TAB_SWITCHES, MAX_AWAY_DURATION_MS
+  }, [isTabActive, isActive, isPaused, tabSwitchCount, awayStartTime, handleFullReset]);
+  // Explicitly listed dependencies for clarity based on usage
 
-  // Effect for checking MAX_AWAY_DURATION_MS
   useEffect(() => {
     let awayCheckInterval: NodeJS.Timeout | null = null;
 
-    if (!isTabActive && awayStartTime && isActive) { // Timer must have been active
+    if (!isTabActive && awayStartTime && isActive) { 
       awayCheckInterval = setInterval(() => {
-        // Check if awayStartTime is still set (i.e., user hasn't returned)
-        // and if a reset hasn't already occurred (isActive would be false)
         if (awayStartTime && isActive && (Date.now() - awayStartTime > MAX_AWAY_DURATION_MS)) {
-          handleFullReset(`You were away for more than ${MAX_AWAY_DURATION_MS / 60000} minutes. Session reset.`);
-          // No need to clear interval here, handleFullReset changes isActive, which cleans up this effect.
+          handleFullReset(`You were away for more than ${MAX_AWAY_DURATION_MS / 60000} minutes. Session reset.`, true);
         }
-      }, 1000); // Check every second
+      }, 1000); 
     }
 
     return () => {
@@ -151,12 +155,12 @@ export default function FocusFlowApp(): React.JSX.Element {
     setDuration(sessionDurationMinutes * 60);
     if (!isActive) { 
       setMotivationalMessage(null);
-      setTabSwitchCount(0); // Reset tab switch count if duration changes while inactive
+      // setTabSwitchCount(0); // Tab switch count resets on successful completion or violation, not just duration change.
     }
   }, [sessionDurationMinutes, setDuration, isActive]);
 
   const fetchPrompt = useCallback(async () => {
-    if (isFetchingPrompt || !isActive) return; // Also ensure session is active
+    if (isFetchingPrompt || !isActive) return; 
     setIsFetchingPrompt(true);
     setPromptError(null);
     try {
@@ -206,16 +210,10 @@ export default function FocusFlowApp(): React.JSX.Element {
 
   const handleStartPause = () => {
     if (isActive && !isPaused) {
-      pauseTimer(); // Manual pause
-    } else { // Start or Resume
-      // If resuming a session that was auto-paused by tab switch, ensure rules weren't broken
-      if (isPaused && awayStartTime) {
-         // This case should ideally be handled by the auto-resume logic when returning to tab.
-         // If user clicks "Resume" manually while away, it's tricky.
-         // For now, assume this click happens when back on the tab.
-      }
+      pauseTimer(); 
+    } else { 
       startTimer();
-      if (!isTabActive && isActive) { // Check isActive again after startTimer()
+      if (!isTabActive && isActive) { 
          toast({
             title: "Tab Inactive",
             description: "Timer started, but the tab is not active. Switch back to this tab to see progress.",
@@ -223,7 +221,6 @@ export default function FocusFlowApp(): React.JSX.Element {
             duration: 7000,
           });
       }
-      // Fetch prompt if starting a new session and on the tab
       if (!motivationalMessage && !promptError && elapsedInSessionSeconds === 0 && isTabActive && !isPaused) {
         fetchPrompt();
       }
@@ -231,8 +228,7 @@ export default function FocusFlowApp(): React.JSX.Element {
   };
 
   const handleSessionResetButton = () => {
-    // Manually reset via button
-    handleFullReset("Session manually reset.");
+    handleFullReset("Session manually reset.", false);
   };
 
   const handleDurationChange = (newDuration: number) => {
@@ -242,8 +238,12 @@ export default function FocusFlowApp(): React.JSX.Element {
         setMotivationalMessage(null);
         setPromptError(null);
         setLastPromptFetchTime(0);
-        setTabSwitchCount(0); // Reset counter on duration change if inactive
+        // setTabSwitchCount(0); // Resets on actual session start/violation
     }
+  };
+  
+  const handlePledgeAmountChange = (newAmount: number) => {
+    setPledgeAmount(newAmount);
   };
 
   const toggleSettings = () => setShowSettings(!showSettings);
@@ -266,6 +266,8 @@ export default function FocusFlowApp(): React.JSX.Element {
             <SessionConfiguration
               sessionDurationMinutes={sessionDurationMinutes}
               onDurationChange={handleDurationChange}
+              pledgeAmount={pledgeAmount}
+              onPledgeAmountChange={handlePledgeAmountChange}
               disabled={isActive} 
             />
           ) : (
@@ -280,12 +282,20 @@ export default function FocusFlowApp(): React.JSX.Element {
                 isActive={isActive}
                 isPaused={isPaused}
                 onStartPause={handleStartPause}
-                onReset={handleSessionResetButton} // Changed to custom reset handler
+                onReset={handleSessionResetButton}
               />
-               <div className="text-sm text-center text-muted-foreground -mt-2">
-                Tab Switches: {tabSwitchCount} / {MAX_TAB_SWITCHES}
-                {awayStartTime && !isTabActive && isActive && (
-                <span className="ml-2 text-red-500 font-semibold">(Currently away)</span>
+               <div className="text-sm text-center text-muted-foreground -mt-2 space-y-1">
+                <div>
+                  Tab Switches: {tabSwitchCount} / {MAX_TAB_SWITCHES}
+                  {awayStartTime && !isTabActive && isActive && (
+                  <span className="ml-2 text-red-500 font-semibold">(Currently away)</span>
+                  )}
+                </div>
+                {pledgeAmount > 0 && (
+                  <div className="flex items-center justify-center text-primary font-medium">
+                    <ShieldAlertIcon className="h-4 w-4 mr-1.5" />
+                    Active Pledge: {pledgeAmount}
+                  </div>
                 )}
               </div>
               
@@ -299,7 +309,7 @@ export default function FocusFlowApp(): React.JSX.Element {
             </div>
           )}
           <Separator />
-          <div className="space-y-4">
+          <div className="space-y-4 pt-4">
             <DistractionModeToggle
               isEnabled={distractionModeEnabled}
               onToggle={setDistractionModeEnabled}
