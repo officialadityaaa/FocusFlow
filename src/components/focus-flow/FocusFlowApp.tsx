@@ -5,11 +5,13 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { SettingsIcon, XIcon, ShieldAlertIcon } from 'lucide-react';
+import { SettingsIcon, XIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useTimer } from '@/hooks/useTimer';
 import { useScreenVisibility } from '@/hooks/useScreenVisibility';
 import { generateMotivationalPrompt, type MotivationalPromptInput } from '@/ai/flows/motivational-prompt';
+import { generateFocusChatResponse, type FocusChatInput } from '@/ai/flows/focus-chat-flow';
+
 
 import { TimerDisplay } from './TimerDisplay';
 import { ProgressDisplay } from './ProgressDisplay';
@@ -20,11 +22,23 @@ import { DistractionModeToggle } from './DistractionModeToggle';
 import { ScreenProctorDisplay } from './ScreenProctorDisplay';
 import { YouTubePlayer } from './YouTubePlayer';
 import { PdfViewer } from './PdfViewer';
+import { FocusChatBox } from './FocusChatBox';
 
 const DEFAULT_SESSION_DURATION_MINUTES = 25;
 const PROMPT_FETCH_INTERVAL_MINUTES = 5; 
 const MAX_TAB_SWITCHES = 3;
 const MAX_AWAY_DURATION_MS = 2 * 60 * 1000; 
+
+interface ChatMessage {
+  id: string;
+  sender: 'user' | 'bot';
+  text: string;
+}
+interface GenkitChatMessage {
+  role: 'user' | 'model';
+  parts: {text: string}[];
+}
+
 
 export default function FocusFlowApp(): React.JSX.Element {
   const { toast } = useToast();
@@ -42,7 +56,9 @@ export default function FocusFlowApp(): React.JSX.Element {
   const [awayStartTime, setAwayStartTime] = useState<number | null>(null);
   const [resetSignal, setResetSignal] = useState(0); 
 
-  const [pledgeAmount, setPledgeAmount] = useState(0);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [isChatResponding, setIsChatResponding] = useState(false);
+
 
   const handleTimerEnd = useCallback(() => {
     toast({
@@ -56,10 +72,10 @@ export default function FocusFlowApp(): React.JSX.Element {
   const {
     timeRemainingSeconds,
     isActive,
-    isPaused,
+    isPaused, // isPaused is managed by useTimer, useful if system needs to pause. User cannot pause.
     elapsedInSessionSeconds,
     startTimer,
-    pauseTimer,
+    // pauseTimer, // User can no longer pause
     resetTimer,
     setDuration,
   } = useTimer({ 
@@ -75,29 +91,20 @@ export default function FocusFlowApp(): React.JSX.Element {
     setTabSwitchCount(0);
     setAwayStartTime(null);
     setResetSignal(prev => prev + 1); 
+    setChatMessages([]); // Reset chat messages on full reset
 
-    if (isViolation && pledgeAmount > 0) {
-      toast({
-        title: "Pledge Forfeited!",
-        description: `Focus lost. Your pledge of ${pledgeAmount} is forfeited. ${reason}`,
-        variant: "destructive",
-        duration: 8000,
-      });
-    } else {
-      toast({
-        title: "Session Reset",
-        description: reason,
-        variant: isViolation ? "destructive" : "default",
-        duration: 7000,
-      });
-    }
-  }, [resetTimer, sessionDurationMinutes, toast, pledgeAmount]);
+    toast({
+      title: isViolation ? "Session Forfeited!" : "Session Reset",
+      description: reason,
+      variant: isViolation ? "destructive" : "default",
+      duration: 7000,
+    });
+  }, [resetTimer, sessionDurationMinutes, toast]);
 
 
   useEffect(() => {
-    if (!isTabActive) { 
-      if (isActive && !isPaused) { 
-        pauseTimer();
+    if (!isTabActive && isActive) { // Timer keeps running, no pause
+      if (awayStartTime === null) { // Only trigger if not already away
         const newSwitchCount = tabSwitchCount + 1;
         setTabSwitchCount(newSwitchCount);
         setAwayStartTime(Date.now());
@@ -106,31 +113,24 @@ export default function FocusFlowApp(): React.JSX.Element {
           handleFullReset(`Exceeded maximum tab switches (${MAX_TAB_SWITCHES}). Session reset.`, true);
         } else {
           toast({
-            title: "Timer Paused",
-            description: `Focus session paused. Tab switches used: ${newSwitchCount}/${MAX_TAB_SWITCHES}. Return within ${MAX_AWAY_DURATION_MS / 60000} min.`,
+            title: "Tab Inactive",
+            description: `Timer is still running. Tab switches used: ${newSwitchCount}/${MAX_TAB_SWITCHES}. Return within ${MAX_AWAY_DURATION_MS / 60000} min.`,
             variant: "destructive",
             duration: 5000,
           });
         }
       }
-    } else { 
-      if (awayStartTime) { 
-        const awayDuration = Date.now() - awayStartTime;
-        setAwayStartTime(null); 
-        
-        if (isActive && isPaused && tabSwitchCount <= MAX_TAB_SWITCHES && awayDuration <= MAX_AWAY_DURATION_MS) {
-          startTimer(); 
-          toast({
-            title: "Timer Resumed",
-            description: "Welcome back! Session resumed.",
-            duration: 3000,
-          });
-        }
-      }
+    } else if (isTabActive && isActive && awayStartTime) { // Returned to tab
+      setAwayStartTime(null); // Clear away start time
+      toast({
+        title: "Tab Active",
+        description: "Welcome back! Focus session is ongoing.",
+        duration: 3000,
+      });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isTabActive, isActive, isPaused, tabSwitchCount, awayStartTime, handleFullReset]);
-  // Explicitly listed dependencies for clarity based on usage
+  }, [isTabActive, isActive, tabSwitchCount, awayStartTime, handleFullReset]);
+
 
   useEffect(() => {
     let awayCheckInterval: NodeJS.Timeout | null = null;
@@ -139,6 +139,7 @@ export default function FocusFlowApp(): React.JSX.Element {
       awayCheckInterval = setInterval(() => {
         if (awayStartTime && isActive && (Date.now() - awayStartTime > MAX_AWAY_DURATION_MS)) {
           handleFullReset(`You were away for more than ${MAX_AWAY_DURATION_MS / 60000} minutes. Session reset.`, true);
+          if (awayCheckInterval) clearInterval(awayCheckInterval); // Clear interval after reset
         }
       }, 1000); 
     }
@@ -155,7 +156,7 @@ export default function FocusFlowApp(): React.JSX.Element {
     setDuration(sessionDurationMinutes * 60);
     if (!isActive) { 
       setMotivationalMessage(null);
-      // setTabSwitchCount(0); // Tab switch count resets on successful completion or violation, not just duration change.
+      setChatMessages([]);
     }
   }, [sessionDurationMinutes, setDuration, isActive]);
 
@@ -185,7 +186,9 @@ export default function FocusFlowApp(): React.JSX.Element {
   }, [sessionDurationMinutes, elapsedInSessionSeconds, isFetchingPrompt, toast, isActive]);
 
   useEffect(() => {
-    if (isActive && !isPaused && isTabActive) {
+    // Since there's no manual pause, isPaused will be false when isActive is true,
+    // unless system pauses, which is not the case now.
+    if (isActive && isTabActive) { 
       if (elapsedInSessionSeconds === 0 && (!motivationalMessage || promptError)) { 
         fetchPrompt();
       } else {
@@ -196,7 +199,7 @@ export default function FocusFlowApp(): React.JSX.Element {
         }
       }
     }
-  }, [isActive, isPaused, isTabActive, elapsedInSessionSeconds, fetchPrompt, motivationalMessage, lastPromptFetchTime, promptError]);
+  }, [isActive, isTabActive, elapsedInSessionSeconds, fetchPrompt, motivationalMessage, lastPromptFetchTime, promptError]);
   
   useEffect(() => {
     if (typeof document !== 'undefined') {
@@ -208,12 +211,10 @@ export default function FocusFlowApp(): React.JSX.Element {
     }
   }, [distractionModeEnabled]);
 
-  const handleStartPause = () => {
-    if (isActive && !isPaused) {
-      pauseTimer(); 
-    } else { 
+  const handleStartSession = () => {
+    if (!isActive) { // Only start if not already active
       startTimer();
-      if (!isTabActive && isActive) { 
+      if (!isTabActive) { 
          toast({
             title: "Tab Inactive",
             description: "Timer started, but the tab is not active. Switch back to this tab to see progress.",
@@ -221,14 +222,20 @@ export default function FocusFlowApp(): React.JSX.Element {
             duration: 7000,
           });
       }
-      if (!motivationalMessage && !promptError && elapsedInSessionSeconds === 0 && isTabActive && !isPaused) {
+      // Fetch initial prompt if conditions met
+      if (!motivationalMessage && !promptError && elapsedInSessionSeconds === 0 && isTabActive) {
         fetchPrompt();
       }
+      setChatMessages([]); // Clear chat messages for new session
     }
+    // No pause functionality from button if session is active
   };
 
   const handleSessionResetButton = () => {
-    handleFullReset("Session manually reset.", false);
+    // This button is disabled if isActive, so this manual reset is only for pre-session.
+    if (!isActive) {
+      handleFullReset("Session manually reset before start.", false);
+    }
   };
 
   const handleDurationChange = (newDuration: number) => {
@@ -238,15 +245,49 @@ export default function FocusFlowApp(): React.JSX.Element {
         setMotivationalMessage(null);
         setPromptError(null);
         setLastPromptFetchTime(0);
-        // setTabSwitchCount(0); // Resets on actual session start/violation
+        setChatMessages([]);
     }
   };
   
-  const handlePledgeAmountChange = (newAmount: number) => {
-    setPledgeAmount(newAmount);
+  const toggleSettings = () => setShowSettings(!showSettings);
+
+  const handleSendMessage = async (messageText: string) => {
+    if (!isActive) {
+      toast({ title: "Session Not Active", description: "Please start a focus session to use the chat.", variant: "destructive" });
+      return;
+    }
+
+    const newUserMessage: ChatMessage = { id: `user-${Date.now()}`, sender: 'user', text: messageText };
+    setChatMessages(prev => [...prev, newUserMessage]);
+    setIsChatResponding(true);
+
+    try {
+      const historyForGenkit: GenkitChatMessage[] = chatMessages.map(msg => ({
+        role: msg.sender === 'user' ? 'user' : 'model',
+        parts: [{ text: msg.text }],
+      }));
+      
+      const input: FocusChatInput = { 
+        userMessage: messageText,
+        history: historyForGenkit,
+      };
+      const result = await generateFocusChatResponse(input);
+      const newBotMessage: ChatMessage = { id: `bot-${Date.now()}`, sender: 'bot', text: result.botResponse };
+      setChatMessages(prev => [...prev, newBotMessage]);
+    } catch (error) {
+      console.error("Failed to send chat message:", error);
+      const errorBotMessage: ChatMessage = { id: `bot-error-${Date.now()}`, sender: 'bot', text: "Sorry, I couldn't get a response. Please try again." };
+      setChatMessages(prev => [...prev, errorBotMessage]);
+      toast({
+        title: "Chat Error",
+        description: "Failed to get a response from the assistant.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsChatResponding(false);
+    }
   };
 
-  const toggleSettings = () => setShowSettings(!showSettings);
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-background p-4 selection:bg-primary/20 selection:text-primary-foreground">
@@ -266,8 +307,6 @@ export default function FocusFlowApp(): React.JSX.Element {
             <SessionConfiguration
               sessionDurationMinutes={sessionDurationMinutes}
               onDurationChange={handleDurationChange}
-              pledgeAmount={pledgeAmount}
-              onPledgeAmountChange={handlePledgeAmountChange}
               disabled={isActive} 
             />
           ) : (
@@ -278,25 +317,29 @@ export default function FocusFlowApp(): React.JSX.Element {
                 sessionDurationSeconds={sessionDurationMinutes * 60}
               />
               <MotivationalMessage message={motivationalMessage} isLoading={isFetchingPrompt} error={promptError} />
+              
+              {isActive && (
+                <FocusChatBox
+                  messages={chatMessages}
+                  onSendMessage={handleSendMessage}
+                  isResponding={isChatResponding}
+                  disabled={!isActive}
+                />
+              )}
+
               <SessionControls
                 isActive={isActive}
-                isPaused={isPaused}
-                onStartPause={handleStartPause}
+                isPaused={isPaused} // Pass isPaused, though user doesn't control it directly
+                onStartPause={handleStartSession} // Renamed for clarity
                 onReset={handleSessionResetButton}
               />
                <div className="text-sm text-center text-muted-foreground -mt-2 space-y-1">
                 <div>
                   Tab Switches: {tabSwitchCount} / {MAX_TAB_SWITCHES}
                   {awayStartTime && !isTabActive && isActive && (
-                  <span className="ml-2 text-red-500 font-semibold">(Currently away)</span>
+                  <span className="ml-2 text-red-500 font-semibold">(Currently away, timer running)</span>
                   )}
                 </div>
-                {pledgeAmount > 0 && (
-                  <div className="flex items-center justify-center text-primary font-medium">
-                    <ShieldAlertIcon className="h-4 w-4 mr-1.5" />
-                    Active Pledge: {pledgeAmount}
-                  </div>
-                )}
               </div>
               
               <Separator className="my-4" /> 
@@ -319,7 +362,7 @@ export default function FocusFlowApp(): React.JSX.Element {
         </CardContent>
         <CardFooter className="bg-secondary/50 p-4">
           <p className="text-xs text-muted-foreground text-center w-full">
-            {isTabActive || !isActive ? "Stay focused, achieve more." : "Warning: Tab lost focus. Return to stay on track!"}
+            {isTabActive || !isActive ? "Stay focused, achieve more." : "Warning: Tab lost focus. Timer still running. Return to stay on track!"}
           </p>
         </CardFooter>
       </Card>
