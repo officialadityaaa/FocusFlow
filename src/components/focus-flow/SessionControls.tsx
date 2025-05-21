@@ -17,7 +17,7 @@ export function SessionControls({ isActive, isPaused, onStartPause, onReset }: S
       <Button
         onClick={onStartPause}
         size="lg"
-        className="w-36 text-lg" // Increased width to accommodate "Session Active"
+        className="w-36 text-lg" 
         disabled={isActive} // Disabled if session is active
         aria-label={isActive ? "Session is active" : "Start session"}
       >
@@ -28,8 +28,8 @@ export function SessionControls({ isActive, isPaused, onStartPause, onReset }: S
         onClick={onReset}
         variant="outline"
         size="lg"
-        className="w-36 text-lg" // Increased width
-        disabled={isActive} // Disabled if session is active
+        className="w-36 text-lg"
+        disabled={isActive} // Ensure reset button is disabled if session is active
         aria-label="Reset session"
       >
         <RotateCcwIcon className="mr-2 h-5 w-5" />
@@ -38,3 +38,4 @@ export function SessionControls({ isActive, isPaused, onStartPause, onReset }: S
     </div>
   );
 }
+

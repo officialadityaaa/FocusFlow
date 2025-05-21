@@ -37,6 +37,8 @@ interface ChatMessage {
 interface GenkitChatMessage {
   role: 'user' | 'model';
   parts: {text: string}[];
+  isUser?: boolean;
+  isModel?: boolean;
 }
 
 
@@ -72,10 +74,9 @@ export default function FocusFlowApp(): React.JSX.Element {
   const {
     timeRemainingSeconds,
     isActive,
-    isPaused, // isPaused is managed by useTimer, useful if system needs to pause. User cannot pause.
+    isPaused, 
     elapsedInSessionSeconds,
     startTimer,
-    // pauseTimer, // User can no longer pause
     resetTimer,
     setDuration,
   } = useTimer({ 
@@ -91,7 +92,7 @@ export default function FocusFlowApp(): React.JSX.Element {
     setTabSwitchCount(0);
     setAwayStartTime(null);
     setResetSignal(prev => prev + 1); 
-    setChatMessages([]); // Reset chat messages on full reset
+    setChatMessages([]); 
 
     toast({
       title: isViolation ? "Session Forfeited!" : "Session Reset",
@@ -103,25 +104,25 @@ export default function FocusFlowApp(): React.JSX.Element {
 
 
   useEffect(() => {
-    if (!isTabActive && isActive) { // Timer keeps running, no pause
-      if (awayStartTime === null) { // Only trigger if not already away
+    if (!isTabActive && isActive) { 
+      if (awayStartTime === null) { 
         const newSwitchCount = tabSwitchCount + 1;
         setTabSwitchCount(newSwitchCount);
         setAwayStartTime(Date.now());
+        // Timer continues to run, no pause.
+        toast({
+          title: "Tab Inactive - Timer Running!",
+          description: `Timer is still running. Tab switches used: ${newSwitchCount}/${MAX_TAB_SWITCHES}. Return within ${MAX_AWAY_DURATION_MS / 60000} min.`,
+          variant: "destructive",
+          duration: 5000,
+        });
 
         if (newSwitchCount > MAX_TAB_SWITCHES) {
           handleFullReset(`Exceeded maximum tab switches (${MAX_TAB_SWITCHES}). Session reset.`, true);
-        } else {
-          toast({
-            title: "Tab Inactive",
-            description: `Timer is still running. Tab switches used: ${newSwitchCount}/${MAX_TAB_SWITCHES}. Return within ${MAX_AWAY_DURATION_MS / 60000} min.`,
-            variant: "destructive",
-            duration: 5000,
-          });
         }
       }
-    } else if (isTabActive && isActive && awayStartTime) { // Returned to tab
-      setAwayStartTime(null); // Clear away start time
+    } else if (isTabActive && isActive && awayStartTime) { 
+      setAwayStartTime(null); 
       toast({
         title: "Tab Active",
         description: "Welcome back! Focus session is ongoing.",
@@ -139,7 +140,7 @@ export default function FocusFlowApp(): React.JSX.Element {
       awayCheckInterval = setInterval(() => {
         if (awayStartTime && isActive && (Date.now() - awayStartTime > MAX_AWAY_DURATION_MS)) {
           handleFullReset(`You were away for more than ${MAX_AWAY_DURATION_MS / 60000} minutes. Session reset.`, true);
-          if (awayCheckInterval) clearInterval(awayCheckInterval); // Clear interval after reset
+          if (awayCheckInterval) clearInterval(awayCheckInterval); 
         }
       }, 1000); 
     }
@@ -149,7 +150,7 @@ export default function FocusFlowApp(): React.JSX.Element {
         clearInterval(awayCheckInterval);
       }
     };
-  }, [isTabActive, awayStartTime, isActive, handleFullReset, MAX_AWAY_DURATION_MS]);
+  }, [isTabActive, awayStartTime, isActive, handleFullReset]);
 
 
   useEffect(() => {
@@ -186,8 +187,6 @@ export default function FocusFlowApp(): React.JSX.Element {
   }, [sessionDurationMinutes, elapsedInSessionSeconds, isFetchingPrompt, toast, isActive]);
 
   useEffect(() => {
-    // Since there's no manual pause, isPaused will be false when isActive is true,
-    // unless system pauses, which is not the case now.
     if (isActive && isTabActive) { 
       if (elapsedInSessionSeconds === 0 && (!motivationalMessage || promptError)) { 
         fetchPrompt();
@@ -212,7 +211,7 @@ export default function FocusFlowApp(): React.JSX.Element {
   }, [distractionModeEnabled]);
 
   const handleStartSession = () => {
-    if (!isActive) { // Only start if not already active
+    if (!isActive) { 
       startTimer();
       if (!isTabActive) { 
          toast({
@@ -222,20 +221,20 @@ export default function FocusFlowApp(): React.JSX.Element {
             duration: 7000,
           });
       }
-      // Fetch initial prompt if conditions met
       if (!motivationalMessage && !promptError && elapsedInSessionSeconds === 0 && isTabActive) {
         fetchPrompt();
       }
-      setChatMessages([]); // Clear chat messages for new session
+      setChatMessages([]); 
     }
-    // No pause functionality from button if session is active
   };
 
   const handleSessionResetButton = () => {
-    // This button is disabled if isActive, so this manual reset is only for pre-session.
+    // This button should be disabled by `isActive` prop in SessionControls.
+    // This check is an additional safeguard.
     if (!isActive) {
       handleFullReset("Session manually reset before start.", false);
     }
+    // If isActive is true, do nothing, as the button should be disabled.
   };
 
   const handleDurationChange = (newDuration: number) => {
@@ -318,19 +317,19 @@ export default function FocusFlowApp(): React.JSX.Element {
               />
               <MotivationalMessage message={motivationalMessage} isLoading={isFetchingPrompt} error={promptError} />
               
-              {isActive && (
+              {isActive && ( // Show chatbox only when session is active
                 <FocusChatBox
                   messages={chatMessages}
                   onSendMessage={handleSendMessage}
                   isResponding={isChatResponding}
-                  disabled={!isActive}
+                  disabled={!isActive} // Disable chat if session not active
                 />
               )}
 
               <SessionControls
                 isActive={isActive}
-                isPaused={isPaused} // Pass isPaused, though user doesn't control it directly
-                onStartPause={handleStartSession} // Renamed for clarity
+                isPaused={isPaused} 
+                onStartPause={handleStartSession} 
                 onReset={handleSessionResetButton}
               />
                <div className="text-sm text-center text-muted-foreground -mt-2 space-y-1">
@@ -369,3 +368,4 @@ export default function FocusFlowApp(): React.JSX.Element {
     </div>
   );
 }
+
