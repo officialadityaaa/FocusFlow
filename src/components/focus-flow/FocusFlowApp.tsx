@@ -23,12 +23,12 @@ import { ScreenProctorDisplay } from './ScreenProctorDisplay';
 import { YouTubePlayer } from './YouTubePlayer';
 import { PdfViewer } from './PdfViewer';
 import { FocusChatBox } from './FocusChatBox';
-import { MusicPlayer } from './MusicPlayer'; // Import the new MusicPlayer
+import { MusicPlayer } from './MusicPlayer';
 
 const DEFAULT_SESSION_DURATION_MINUTES = 25;
-const PROMPT_FETCH_INTERVAL_MINUTES = 5; 
+const PROMPT_FETCH_INTERVAL_MINUTES = 5;
 const MAX_TAB_SWITCHES = 3;
-const MAX_AWAY_DURATION_MS = 2 * 60 * 1000; 
+const MAX_AWAY_DURATION_MS = 2 * 60 * 1000;
 
 interface ChatMessage {
   id: string;
@@ -46,7 +46,7 @@ interface GenkitChatMessage {
 export default function FocusFlowApp(): React.JSX.Element {
   const { toast } = useToast();
   const [sessionDurationMinutes, setSessionDurationMinutes] = useState(DEFAULT_SESSION_DURATION_MINUTES);
-  
+
   const [motivationalMessage, setMotivationalMessage] = useState<string | null>(null);
   const [isFetchingPrompt, setIsFetchingPrompt] = useState(false);
   const [promptError, setPromptError] = useState<string | null>(null);
@@ -57,7 +57,7 @@ export default function FocusFlowApp(): React.JSX.Element {
 
   const [tabSwitchCount, setTabSwitchCount] = useState(0);
   const [awayStartTime, setAwayStartTime] = useState<number | null>(null);
-  const [resetSignal, setResetSignal] = useState(0); 
+  const [resetSignal, setResetSignal] = useState(0);
 
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [isChatResponding, setIsChatResponding] = useState(false);
@@ -69,18 +69,18 @@ export default function FocusFlowApp(): React.JSX.Element {
       description: `You've completed a ${sessionDurationMinutes}-minute focus session. Great job!`,
     });
     setMotivationalMessage("Session Complete! Well done.");
-    setTabSwitchCount(0); 
+    setTabSwitchCount(0);
   }, [sessionDurationMinutes, toast]);
 
   const {
     timeRemainingSeconds,
     isActive,
-    isPaused, 
+    isPaused,
     elapsedInSessionSeconds,
     startTimer,
     resetTimer,
     setDuration,
-  } = useTimer({ 
+  } = useTimer({
     initialDurationSeconds: sessionDurationMinutes * 60,
     onEnd: handleTimerEnd,
   });
@@ -92,8 +92,8 @@ export default function FocusFlowApp(): React.JSX.Element {
     setLastPromptFetchTime(0);
     setTabSwitchCount(0);
     setAwayStartTime(null);
-    setResetSignal(prev => prev + 1); 
-    setChatMessages([]); 
+    setResetSignal(prev => prev + 1);
+    setChatMessages([]);
 
     toast({
       title: isViolation ? "Session Forfeited!" : "Session Reset",
@@ -105,12 +105,12 @@ export default function FocusFlowApp(): React.JSX.Element {
 
 
   useEffect(() => {
-    if (!isTabActive && isActive) { 
-      if (awayStartTime === null) { 
+    if (!isTabActive && isActive) {
+      if (awayStartTime === null) {
         const newSwitchCount = tabSwitchCount + 1;
         setTabSwitchCount(newSwitchCount);
         setAwayStartTime(Date.now());
-        // Timer continues to run, no pause.
+        // Timer continues to run
         toast({
           title: "Tab Inactive - Timer Running!",
           description: `Timer is still running. Tab switches used: ${newSwitchCount}/${MAX_TAB_SWITCHES}. Return within ${MAX_AWAY_DURATION_MS / 60000} min.`,
@@ -122,8 +122,8 @@ export default function FocusFlowApp(): React.JSX.Element {
           handleFullReset(`Exceeded maximum tab switches (${MAX_TAB_SWITCHES}). Session reset.`, true);
         }
       }
-    } else if (isTabActive && isActive && awayStartTime) { 
-      setAwayStartTime(null); 
+    } else if (isTabActive && isActive && awayStartTime) {
+      setAwayStartTime(null);
       toast({
         title: "Tab Active",
         description: "Welcome back! Focus session is ongoing.",
@@ -137,13 +137,13 @@ export default function FocusFlowApp(): React.JSX.Element {
   useEffect(() => {
     let awayCheckInterval: NodeJS.Timeout | null = null;
 
-    if (!isTabActive && awayStartTime && isActive) { 
+    if (!isTabActive && awayStartTime && isActive) {
       awayCheckInterval = setInterval(() => {
         if (awayStartTime && isActive && (Date.now() - awayStartTime > MAX_AWAY_DURATION_MS)) {
           handleFullReset(`You were away for more than ${MAX_AWAY_DURATION_MS / 60000} minutes. Session reset.`, true);
-          if (awayCheckInterval) clearInterval(awayCheckInterval); 
+          if (awayCheckInterval) clearInterval(awayCheckInterval);
         }
-      }, 1000); 
+      }, 1000);
     }
 
     return () => {
@@ -156,14 +156,14 @@ export default function FocusFlowApp(): React.JSX.Element {
 
   useEffect(() => {
     setDuration(sessionDurationMinutes * 60);
-    if (!isActive) { 
+    if (!isActive) {
       setMotivationalMessage(null);
       setChatMessages([]);
     }
   }, [sessionDurationMinutes, setDuration, isActive]);
 
   const fetchPrompt = useCallback(async () => {
-    if (isFetchingPrompt || !isActive) return; 
+    if (isFetchingPrompt || !isActive) return;
     setIsFetchingPrompt(true);
     setPromptError(null);
     try {
@@ -188,8 +188,8 @@ export default function FocusFlowApp(): React.JSX.Element {
   }, [sessionDurationMinutes, elapsedInSessionSeconds, isFetchingPrompt, toast, isActive]);
 
   useEffect(() => {
-    if (isActive && isTabActive) { 
-      if (elapsedInSessionSeconds === 0 && (!motivationalMessage || promptError)) { 
+    if (isActive && isTabActive) {
+      if (elapsedInSessionSeconds === 0 && (!motivationalMessage || promptError)) {
         fetchPrompt();
       } else {
         const elapsedMinutes = Math.floor(elapsedInSessionSeconds / 60);
@@ -200,7 +200,7 @@ export default function FocusFlowApp(): React.JSX.Element {
       }
     }
   }, [isActive, isTabActive, elapsedInSessionSeconds, fetchPrompt, motivationalMessage, lastPromptFetchTime, promptError]);
-  
+
   useEffect(() => {
     if (typeof document !== 'undefined') {
       if (distractionModeEnabled) {
@@ -212,9 +212,9 @@ export default function FocusFlowApp(): React.JSX.Element {
   }, [distractionModeEnabled]);
 
   const handleStartSession = () => {
-    if (!isActive) { 
+    if (!isActive) {
       startTimer();
-      if (!isTabActive) { 
+      if (!isTabActive) {
          toast({
             title: "Tab Inactive",
             description: "Timer started, but the tab is not active. Switch back to this tab to see progress.",
@@ -225,7 +225,7 @@ export default function FocusFlowApp(): React.JSX.Element {
       if (!motivationalMessage && !promptError && elapsedInSessionSeconds === 0 && isTabActive) {
         fetchPrompt();
       }
-      setChatMessages([]); 
+      setChatMessages([]);
     }
   };
 
@@ -233,7 +233,7 @@ export default function FocusFlowApp(): React.JSX.Element {
     const reason = isActive
       ? "Session manually reset during an active session."
       : "Session manually reset before start.";
-    handleFullReset(reason, false); 
+    handleFullReset(reason, false);
   };
 
   const handleDurationChange = (newDuration: number) => {
@@ -246,7 +246,7 @@ export default function FocusFlowApp(): React.JSX.Element {
         setChatMessages([]);
     }
   };
-  
+
   const toggleSettings = () => setShowSettings(!showSettings);
 
   const handleSendMessage = async (messageText: string) => {
@@ -264,8 +264,8 @@ export default function FocusFlowApp(): React.JSX.Element {
         role: msg.sender === 'user' ? 'user' : 'model',
         parts: [{ text: msg.text }],
       }));
-      
-      const input: FocusChatInput = { 
+
+      const input: FocusChatInput = {
         userMessage: messageText,
         history: historyForGenkit,
       };
@@ -288,8 +288,8 @@ export default function FocusFlowApp(): React.JSX.Element {
 
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen p-4 selection:bg-primary/20 selection:text-primary-foreground">
-      <Card className="w-full max-w-lg shadow-2xl rounded-xl overflow-hidden shadow-primary/10">
+    <div className="flex flex-col items-center justify-center min-h-screen p-4 selection:bg-primary/20 selection:text-primary">
+      <Card className="w-full max-w-lg rounded-xl overflow-hidden shadow-xl shadow-primary/30">
         <CardHeader className="bg-card">
           <div className="flex justify-between items-center">
             <CardTitle className="text-3xl font-semibold text-primary">
@@ -305,7 +305,7 @@ export default function FocusFlowApp(): React.JSX.Element {
             <SessionConfiguration
               sessionDurationMinutes={sessionDurationMinutes}
               onDurationChange={handleDurationChange}
-              disabled={isActive} 
+              disabled={isActive}
             />
           ) : (
             <div className="space-y-6">
@@ -315,37 +315,37 @@ export default function FocusFlowApp(): React.JSX.Element {
                 sessionDurationSeconds={sessionDurationMinutes * 60}
               />
               <MotivationalMessage message={motivationalMessage} isLoading={isFetchingPrompt} error={promptError} />
-              
-              {isActive && ( 
+
+              {isActive && (
                 <FocusChatBox
                   messages={chatMessages}
                   onSendMessage={handleSendMessage}
                   isResponding={isChatResponding}
-                  disabled={!isActive} 
+                  disabled={!isActive}
                 />
               )}
 
               <SessionControls
                 isActive={isActive}
-                isPaused={isPaused} 
-                onStartPause={handleStartSession} 
+                isPaused={isPaused}
+                onStartPause={handleStartSession}
                 onReset={handleSessionResetButton}
               />
                <div className="text-sm text-center text-muted-foreground -mt-2 space-y-1">
                 <div>
                   Tab Switches: {tabSwitchCount} / {MAX_TAB_SWITCHES}
                   {awayStartTime && !isTabActive && isActive && (
-                  <span className="ml-2 text-red-500 font-semibold">(Currently away, timer running)</span>
+                  <span className="ml-2 text-destructive font-semibold">(Currently away, timer running)</span>
                   )}
                 </div>
               </div>
-              
-              <Separator className="my-4" /> 
-              
+
+              <Separator className="my-4" />
+
               <div className="space-y-4">
                 <YouTubePlayer key={`youtube-${resetSignal}`} />
                 <PdfViewer key={`pdf-${resetSignal}`} />
-                <MusicPlayer key={`music-${resetSignal}`} /> {/* Add MusicPlayer here */}
+                <MusicPlayer key={`music-${resetSignal}`} />
               </div>
 
             </div>
@@ -359,7 +359,7 @@ export default function FocusFlowApp(): React.JSX.Element {
             <ScreenProctorDisplay isTabActive={isTabActive} />
           </div>
         </CardContent>
-        <CardFooter className="bg-secondary/50 p-4">
+        <CardFooter className="bg-card/80 p-4">
           <p className="text-xs text-muted-foreground text-center w-full">
             {isTabActive || !isActive ? "Stay focused, achieve more." : "Warning: Tab lost focus. Timer still running. Return to stay on track!"}
           </p>
