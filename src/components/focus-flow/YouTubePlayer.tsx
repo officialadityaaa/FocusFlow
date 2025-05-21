@@ -5,7 +5,7 @@ import type React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { YoutubeIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -17,10 +17,18 @@ const getYouTubeId = (url: string): string | null => {
   return (match && match[2] && match[2].length === 11) ? match[2] : null;
 };
 
-export function YouTubePlayer(): React.JSX.Element {
+interface YouTubePlayerProps {
+  // key prop will be used for resetting by changing it
+}
+
+export function YouTubePlayer(props: YouTubePlayerProps): React.JSX.Element {
   const [videoUrl, setVideoUrl] = useState('');
   const [embedUrl, setEmbedUrl] = useState<string | null>(null);
   const { toast } = useToast();
+
+  // Effect to reset component state if the key changes (used for external reset)
+  // This is implicitly handled by React if the key prop changes on the component instance.
+  // No explicit useEffect needed here if reset is done via key.
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,7 +65,7 @@ export function YouTubePlayer(): React.JSX.Element {
           />
           <Button type="submit" size="sm" className="w-full sm:w-auto">Load Video</Button>
         </form>
-        {embedUrl && (
+        {embedUrl ? (
           <div className="mt-4 aspect-video bg-muted rounded-md overflow-hidden">
             <iframe
               width="100%"
@@ -69,6 +77,10 @@ export function YouTubePlayer(): React.JSX.Element {
               allowFullScreen
               className="block" // Ensure iframe takes up space
             ></iframe>
+          </div>
+        ) : (
+           <div className="mt-4 border border-dashed rounded-md flex items-center justify-center bg-muted/50" style={{ height: '200px' }}>
+            <p className="text-muted-foreground">Enter a YouTube URL to watch</p>
           </div>
         )}
       </CardContent>

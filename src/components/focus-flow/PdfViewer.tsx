@@ -5,19 +5,36 @@ import type React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { FileTextIcon } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react'; // Added useRef here
 import { useToast } from '@/hooks/use-toast';
 
-export function PdfViewer(): React.JSX.Element {
+interface PdfViewerProps {
+  // key prop will be used for resetting by changing it
+}
+
+export function PdfViewer(props: PdfViewerProps): React.JSX.Element {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+
+  // Effect to reset component state if the key changes (used for external reset)
+  // This is implicitly handled if the key prop changes on the component instance.
+  // We also need to reset the file input value.
+  useEffect(() => {
+    // This effect will run on initial mount and when the key changes (causing re-mount)
+    setPdfUrl(null);
+    setFileError(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ""; // Clear the file input
+    }
+  }, []); // Empty dependency array means it runs on mount (and re-mount due to key change)
+
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
       if (file.type === "application/pdf") {
-        // Revoke previous object URL if it exists
         if (pdfUrl) {
           URL.revokeObjectURL(pdfUrl);
         }
@@ -25,7 +42,6 @@ export function PdfViewer(): React.JSX.Element {
         setPdfUrl(objectUrl);
         setFileError(null);
       } else {
-        // Revoke previous object URL if it exists
         if (pdfUrl) {
           URL.revokeObjectURL(pdfUrl);
         }
@@ -37,10 +53,9 @@ export function PdfViewer(): React.JSX.Element {
           description: errorMsg,
           variant: 'destructive',
         });
-        event.target.value = ""; // Reset file input
+        event.target.value = ""; 
       }
     } else {
-       // Revoke previous object URL if it exists and no file is selected
         if (pdfUrl) {
           URL.revokeObjectURL(pdfUrl);
         }
@@ -48,15 +63,14 @@ export function PdfViewer(): React.JSX.Element {
     }
   };
   
-  // Effect to revoke object URL on unmount
   useEffect(() => {
-    const currentPdfUrl = pdfUrl; // Capture pdfUrl at the time effect runs
+    const currentPdfUrl = pdfUrl; 
     return () => {
       if (currentPdfUrl) {
         URL.revokeObjectURL(currentPdfUrl);
       }
     };
-  }, [pdfUrl]); // Rerun if pdfUrl changes
+  }, [pdfUrl]);
 
   return (
     <Card className="shadow-md rounded-lg">
@@ -68,6 +82,7 @@ export function PdfViewer(): React.JSX.Element {
       </CardHeader>
       <CardContent className="space-y-3">
         <Input
+          ref={fileInputRef}
           type="file"
           accept="application/pdf"
           onChange={handleFileChange}
@@ -82,7 +97,7 @@ export function PdfViewer(): React.JSX.Element {
               title="PDF Viewer"
               width="100%"
               height="100%"
-              className="block" // Ensure iframe takes up space
+              className="block"
             ></iframe>
           </div>
         ) : (
