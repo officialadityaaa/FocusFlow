@@ -23,7 +23,7 @@ import { ScreenProctorDisplay } from './ScreenProctorDisplay';
 import { YouTubePlayer } from './YouTubePlayer';
 import { PdfViewer } from './PdfViewer';
 import { FocusChatBox } from './FocusChatBox';
-import { SpotifyPlayer } from './SpotifyPlayer'; // Import the new SpotifyPlayer
+import { MusicPlayer } from './MusicPlayer'; // Import the new MusicPlayer
 
 const DEFAULT_SESSION_DURATION_MINUTES = 25;
 const PROMPT_FETCH_INTERVAL_MINUTES = 5; 
@@ -345,7 +345,7 @@ export default function FocusFlowApp(): React.JSX.Element {
               <div className="space-y-4">
                 <YouTubePlayer key={`youtube-${resetSignal}`} />
                 <PdfViewer key={`pdf-${resetSignal}`} />
-                <SpotifyPlayer key={`spotify-${resetSignal}`} /> {/* Add SpotifyPlayer here */}
+                <MusicPlayer key={`music-${resetSignal}`} /> {/* Add MusicPlayer here */}
               </div>
 
             </div>
