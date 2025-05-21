@@ -14,6 +14,8 @@ import {z} from 'genkit';
 const ChatMessageSchema = z.object({
   role: z.enum(['user', 'model']),
   parts: z.array(z.object({text: z.string()})),
+  isUser: z.boolean().optional().describe("True if the message is from the user."),
+  isModel: z.boolean().optional().describe("True if the message is from the AI model."),
 });
 
 const FocusChatInputSchema = z.object({
@@ -40,8 +42,8 @@ const prompt = ai.definePrompt({
 Conversation History:
 {{#if history}}
 {{#each history}}
-{{#if (eq role "user") }}User: {{parts.0.text}}{{/if}}
-{{#if (eq role "model") }}Assistant: {{parts.0.text}}{{/if}}
+{{#if isUser}}User: {{#each parts}}{{text}}{{/each}}{{/if}}
+{{#if isModel}}Assistant: {{#each parts}}{{text}}{{/each}}{{/if}}
 {{/each}}
 {{else}}
 No previous messages.
@@ -58,9 +60,15 @@ const focusChatFlow = ai.defineFlow(
     outputSchema: FocusChatOutputSchema,
   },
   async (input: FocusChatInput) => {
+    const processedHistory = (input.history || []).map(msg => ({
+      ...msg,
+      isUser: msg.role === 'user',
+      isModel: msg.role === 'model',
+    }));
+
     const {output} = await prompt({
         userMessage: input.userMessage,
-        history: input.history || [],
+        history: processedHistory,
     });
     if (!output) {
         throw new Error("No output from AI model for chat.")
@@ -68,3 +76,4 @@ const focusChatFlow = ai.defineFlow(
     return { botResponse: output.botResponse };
   }
 );
+
