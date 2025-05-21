@@ -229,12 +229,10 @@ export default function FocusFlowApp(): React.JSX.Element {
   };
 
   const handleSessionResetButton = () => {
-    // This button should be disabled by `isActive` prop in SessionControls.
-    // This check is an additional safeguard.
-    if (!isActive) {
-      handleFullReset("Session manually reset before start.", false);
-    }
-    // If isActive is true, do nothing, as the button should be disabled.
+    const reason = isActive
+      ? "Session manually reset during an active session."
+      : "Session manually reset before start.";
+    handleFullReset(reason, false); 
   };
 
   const handleDurationChange = (newDuration: number) => {
@@ -317,12 +315,12 @@ export default function FocusFlowApp(): React.JSX.Element {
               />
               <MotivationalMessage message={motivationalMessage} isLoading={isFetchingPrompt} error={promptError} />
               
-              {isActive && ( // Show chatbox only when session is active
+              {isActive && ( 
                 <FocusChatBox
                   messages={chatMessages}
                   onSendMessage={handleSendMessage}
                   isResponding={isChatResponding}
-                  disabled={!isActive} // Disable chat if session not active
+                  disabled={!isActive} 
                 />
               )}
 
