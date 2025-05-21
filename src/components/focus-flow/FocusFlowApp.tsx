@@ -23,6 +23,7 @@ import { ScreenProctorDisplay } from './ScreenProctorDisplay';
 import { YouTubePlayer } from './YouTubePlayer';
 import { PdfViewer } from './PdfViewer';
 import { FocusChatBox } from './FocusChatBox';
+import { SpotifyPlayer } from './SpotifyPlayer'; // Import the new SpotifyPlayer
 
 const DEFAULT_SESSION_DURATION_MINUTES = 25;
 const PROMPT_FETCH_INTERVAL_MINUTES = 5; 
@@ -287,8 +288,8 @@ export default function FocusFlowApp(): React.JSX.Element {
 
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-background p-4 selection:bg-primary/20 selection:text-primary-foreground">
-      <Card className="w-full max-w-lg shadow-2xl rounded-xl overflow-hidden">
+    <div className="flex flex-col items-center justify-center min-h-screen p-4 selection:bg-primary/20 selection:text-primary-foreground">
+      <Card className="w-full max-w-lg shadow-2xl rounded-xl overflow-hidden shadow-primary/10">
         <CardHeader className="bg-card">
           <div className="flex justify-between items-center">
             <CardTitle className="text-3xl font-semibold text-primary">
@@ -344,6 +345,7 @@ export default function FocusFlowApp(): React.JSX.Element {
               <div className="space-y-4">
                 <YouTubePlayer key={`youtube-${resetSignal}`} />
                 <PdfViewer key={`pdf-${resetSignal}`} />
+                <SpotifyPlayer key={`spotify-${resetSignal}`} /> {/* Add SpotifyPlayer here */}
               </div>
 
             </div>
@@ -366,4 +368,3 @@ export default function FocusFlowApp(): React.JSX.Element {
     </div>
   );
 }
-

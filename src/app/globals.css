@@ -4,6 +4,9 @@
 
 body {
   font-family: Arial, Helvetica, sans-serif;
+  /* Added a subtle gradient background */
+  background: linear-gradient(135deg, hsl(var(--background)) 0%, hsl(var(--secondary)) 100%);
+  min-height: 100vh; /* Ensure gradient covers full viewport height */
 }
 
 @layer base {
@@ -83,6 +86,6 @@ body {
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply text-foreground; /* Background is now handled by the direct body style */
   }
 }
