@@ -5,11 +5,17 @@ import { PlayIcon, RotateCcwIcon, CheckCircleIcon } from 'lucide-react';
 
 interface SessionControlsProps {
   isSessionPrimed: boolean;
+  isTimerActive: boolean; // Added to differentiate between primed and actively running
   onStartSession: () => void;
   onReset: () => void;
 }
 
-export function SessionControls({ isSessionPrimed, onStartSession, onReset }: SessionControlsProps): React.JSX.Element {
+export function SessionControls({ 
+  isSessionPrimed, 
+  isTimerActive, 
+  onStartSession, 
+  onReset 
+}: SessionControlsProps): React.JSX.Element {
   return (
     <div className="flex justify-center space-x-4 py-4">
       <Button
@@ -17,10 +23,10 @@ export function SessionControls({ isSessionPrimed, onStartSession, onReset }: Se
         size="lg"
         className="w-36 text-lg" 
         disabled={isSessionPrimed} 
-        aria-label={isSessionPrimed ? "Session is active/primed" : "Start session"}
+        aria-label={isSessionPrimed ? (isTimerActive ? "Session Active" : "Session Primed - Resume by meeting conditions") : "Start session"}
       >
         {isSessionPrimed ? <CheckCircleIcon className="mr-2 h-5 w-5" /> : <PlayIcon className="mr-2 h-5 w-5" />}
-        {isSessionPrimed ? 'Session Primed' : 'Start'}
+        {isSessionPrimed ? (isTimerActive ? 'Active' : 'Primed') : 'Start'}
       </Button>
       <Button
         onClick={onReset}
@@ -35,4 +41,3 @@ export function SessionControls({ isSessionPrimed, onStartSession, onReset }: Se
     </div>
   );
 }
-
