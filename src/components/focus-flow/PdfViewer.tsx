@@ -102,10 +102,10 @@ export function PdfViewer(props: PdfViewerProps): React.JSX.Element {
           aria-label="Upload PDF file"
         />
         {fileError && <p className="text-sm text-destructive">{fileError}</p>}
-        <div className="mt-4 border rounded-md bg-muted" style={{ height: '500px', overflow: 'hidden' }}>
+        <div className="mt-4 border rounded-md bg-muted h-[500px]"> {/* Use Tailwind for height, removed overflow: hidden */}
           {pdfUrl ? (
             <iframe
-              key={pdfUrl} // Added key here
+              key={pdfUrl} 
               src={pdfUrl}
               title="PDF Viewer"
               width="100%"

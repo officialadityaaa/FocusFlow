@@ -64,7 +64,7 @@ export default function FocusFlowApp(): React.JSX.Element {
   const [isChatResponding, setIsChatResponding] = useState(false);
 
   const [isInFullscreen, setIsInFullscreen] = useState(false);
-  const [isSessionPrimed, setIsSessionPrimed] = useState(false); // User has clicked "Start" and conditions met
+  const [isSessionPrimed, setIsSessionPrimed] = useState(false); 
   const cardRef = useRef<HTMLDivElement>(null);
 
 
@@ -74,7 +74,7 @@ export default function FocusFlowApp(): React.JSX.Element {
       description: `You've completed a ${sessionDurationMinutes}-minute focus session. Great job!`,
     });
     setMotivationalMessage("Session Complete! Well done.");
-    setIsSessionPrimed(false); // Session is no longer primed
+    setIsSessionPrimed(false); 
     if (document.fullscreenElement && cardRef.current && document.fullscreenElement === cardRef.current) {
       document.exitFullscreen().catch(err => console.error("Error exiting fullscreen:", err));
     }
@@ -82,7 +82,7 @@ export default function FocusFlowApp(): React.JSX.Element {
 
   const {
     timeRemainingSeconds,
-    isActive: isTimerActuallyActive,
+    isActive: isTimerActuallyActive, // Renamed from 'isActive' in useTimer to avoid conflict
     isPaused: isTimerPaused,
     elapsedInSessionSeconds,
     startTimer,
@@ -103,7 +103,7 @@ export default function FocusFlowApp(): React.JSX.Element {
     setAwayStartTime(null);
     setResetSignal(prev => prev + 1);
     setChatMessages([]);
-    setIsSessionPrimed(false); // Ensure session is not primed on reset
+    setIsSessionPrimed(false); 
     if (document.fullscreenElement && cardRef.current && document.fullscreenElement === cardRef.current) {
       document.exitFullscreen().catch(err => console.error("Error exiting fullscreen on reset:", err));
     }
@@ -116,7 +116,6 @@ export default function FocusFlowApp(): React.JSX.Element {
     });
   }, [resetTimer, sessionDurationMinutes, toast]);
 
-  // Fullscreen state management for the main card
   useEffect(() => {
     const handleFullscreenChange = () => {
       setIsInFullscreen(!!(document.fullscreenElement && document.fullscreenElement === cardRef.current));
@@ -144,7 +143,6 @@ export default function FocusFlowApp(): React.JSX.Element {
     }
   };
 
-  // Core timer control logic based on session state, fullscreen, and tab activity
   useEffect(() => {
     const shouldTimerRun = isSessionPrimed && isInFullscreen && isTabActive;
 
@@ -160,17 +158,16 @@ export default function FocusFlowApp(): React.JSX.Element {
   }, [isSessionPrimed, isInFullscreen, isTabActive, isTimerActuallyActive, isTimerPaused, startTimer, pauseTimer]);
 
 
-  // Tab switching penalty logic
   useEffect(() => {
-    if (!isTabActive && isSessionPrimed) {
-      if (awayStartTime === null) {
+    if (!isTabActive && isSessionPrimed) { // Only penalize if session is primed
+      if (awayStartTime === null) { // Only increment and set start time on the first detection of inactivity
         const newSwitchCount = tabSwitchCount + 1;
         setTabSwitchCount(newSwitchCount);
-        setAwayStartTime(Date.now());
+        setAwayStartTime(Date.now()); // Record when user navigated away
 
         toast({
           title: "Tab Inactive - Focus Broken!",
-          description: `Timer paused. Tab switches used: ${newSwitchCount}/${MAX_TAB_SWITCHES}. Return within ${MAX_AWAY_DURATION_MS / 60000} min.`,
+          description: `Timer ${isInFullscreen ? 'paused' : 'will not run'}. Tab switches used: ${newSwitchCount}/${MAX_TAB_SWITCHES}. Return within ${MAX_AWAY_DURATION_MS / 60000} min.`,
           variant: "destructive",
           duration: 5000,
         });
@@ -179,18 +176,17 @@ export default function FocusFlowApp(): React.JSX.Element {
           handleFullReset(`Exceeded maximum tab switches (${MAX_TAB_SWITCHES}). Session reset.`, true);
         }
       }
-    } else if (isTabActive && isSessionPrimed && awayStartTime) {
-      setAwayStartTime(null);
+    } else if (isTabActive && isSessionPrimed && awayStartTime) { // User returned to tab
+      setAwayStartTime(null); // Clear away start time
       toast({
         title: "Tab Active",
         description: "Welcome back! Timer will resume if in fullscreen.",
         duration: 3000,
       });
     }
-  }, [isTabActive, isSessionPrimed, tabSwitchCount, awayStartTime, handleFullReset, toast]);
+  }, [isTabActive, isSessionPrimed, tabSwitchCount, awayStartTime, handleFullReset, toast, isInFullscreen]);
 
 
-  // Check for prolonged absence
   useEffect(() => {
     let awayCheckInterval: NodeJS.Timeout | null = null;
     if (!isTabActive && awayStartTime && isSessionPrimed) {
@@ -267,13 +263,11 @@ export default function FocusFlowApp(): React.JSX.Element {
 
   const handleStartSessionClick = () => {
     if (!isSessionPrimed) {
-      setIsSessionPrimed(true); // Mark session as "primed" - ready to start if conditions met
+      setIsSessionPrimed(true); 
       setTabSwitchCount(0);
       setAwayStartTime(null);
       setChatMessages([]);
       
-      // Timer will start via the useEffect hook if conditions (fullscreen, tab active) are met.
-      // If not, the hook will keep it paused.
       if (!isInFullscreen) {
         toast({
           title: "Enter Fullscreen",
@@ -296,12 +290,12 @@ export default function FocusFlowApp(): React.JSX.Element {
     const reason = isTimerActuallyActive || isSessionPrimed
       ? "Session manually reset during an active/primed session."
       : "Session settings reset before start.";
-    handleFullReset(reason, false);
+    handleFullReset(reason, isTimerActuallyActive || isSessionPrimed); // Mark as violation if active/primed
   };
 
   const handleDurationChange = (newDuration: number) => {
     setSessionDurationMinutes(newDuration);
-    if (!isSessionPrimed) { // Only reset if session isn't primed
+    if (!isSessionPrimed) { 
         resetTimer(newDuration * 60);
         setMotivationalMessage(null);
         setPromptError(null);
@@ -369,14 +363,14 @@ export default function FocusFlowApp(): React.JSX.Element {
         className={cn(
           "w-full max-w-lg rounded-xl shadow-xl shadow-primary/30 bg-card transition-all duration-300 ease-in-out",
           isInFullscreen
-            ? "fixed inset-0 z-50 flex h-screen w-screen max-w-none flex-col rounded-none border-none"
+            ? "fixed inset-0 z-50 flex h-screen min-h-0 w-screen max-w-none flex-col rounded-none border-none" // Added min-h-0
             : "overflow-hidden"
         )}
       >
         <CardHeader
           className={cn(
-            "bg-card",
-            isInFullscreen && "sticky top-0 z-10 flex-shrink-0 border-b backdrop-blur-sm bg-card/90"
+            "bg-card flex-shrink-0",
+            isInFullscreen && "sticky top-0 z-10 border-b backdrop-blur-sm bg-card/90"
           )}
         >
           <div className="flex justify-between items-center">
@@ -422,7 +416,7 @@ export default function FocusFlowApp(): React.JSX.Element {
                   messages={chatMessages}
                   onSendMessage={handleSendMessage}
                   isResponding={isChatResponding}
-                  disabled={!isTimerActuallyActive} // Disable chat if timer is not actually running
+                  disabled={!isTimerActuallyActive && !isTimerPaused} 
                 />
               )}
 
@@ -462,8 +456,8 @@ export default function FocusFlowApp(): React.JSX.Element {
         </CardContent>
         <CardFooter
           className={cn(
-            "bg-card/80 p-4",
-            isInFullscreen && "sticky bottom-0 z-10 flex-shrink-0 border-t backdrop-blur-sm bg-card/90"
+            "bg-card/80 p-4 flex-shrink-0",
+            isInFullscreen && "sticky bottom-0 z-10 border-t backdrop-blur-sm bg-card/90"
           )}
         >
           <p className="text-xs text-muted-foreground text-center w-full">
@@ -477,4 +471,3 @@ export default function FocusFlowApp(): React.JSX.Element {
     </div>
   );
 }
-
