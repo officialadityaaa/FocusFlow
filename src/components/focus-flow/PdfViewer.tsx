@@ -20,24 +20,26 @@ export function PdfViewer(props: PdfViewerProps): React.JSX.Element {
 
   // Effect to clear PDF URL and file input when the component's key changes (external reset)
   useEffect(() => {
+    // This effect runs when the component's key changes (due to resetSignal in parent)
     if (pdfUrl) {
       URL.revokeObjectURL(pdfUrl);
-      setPdfUrl(null);
+      setPdfUrl(null); // Clear the URL for the new instance
     }
     setFileError(null);
     if (fileInputRef.current) {
-      fileInputRef.current.value = ""; 
+      fileInputRef.current.value = ""; // Clear the file input
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props]); // Rely on key change to trigger this reset. pdfUrl is not needed here as it causes loop.
+  }, [props]); // Key change is tracked by props identity change
 
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
       if (file.type === "application/pdf") {
+        // If a PDF was already loaded, revoke its object URL first
         if (pdfUrl) {
-          URL.revokeObjectURL(pdfUrl); // Clean up previous object URL if any
+          URL.revokeObjectURL(pdfUrl);
         }
         const objectUrl = URL.createObjectURL(file);
         setPdfUrl(objectUrl);
@@ -58,27 +60,28 @@ export function PdfViewer(props: PdfViewerProps): React.JSX.Element {
           description: errorMsg,
           variant: 'destructive',
         });
-        if (event.target) { // Clear the input
+        if (event.target) {
            event.target.value = "";
         }
       }
     } else { // No file selected, or selection cancelled
-        if (pdfUrl) {
+        if (pdfUrl) { // If a PDF was previously loaded and selection is cancelled
           URL.revokeObjectURL(pdfUrl);
+          setPdfUrl(null); // Clear the currently displayed PDF
         }
-      setPdfUrl(null);
     }
   };
   
   // Cleanup object URL on component unmount or when pdfUrl itself changes
+  // This is important to prevent memory leaks from unused object URLs
   useEffect(() => {
-    const currentPdfUrl = pdfUrl; 
+    const currentPdfUrlForCleanup = pdfUrl; 
     return () => {
-      if (currentPdfUrl) {
-        URL.revokeObjectURL(currentPdfUrl);
+      if (currentPdfUrlForCleanup) {
+        URL.revokeObjectURL(currentPdfUrlForCleanup);
       }
     };
-  }, [pdfUrl]);
+  }, [pdfUrl]); // Rerun if pdfUrl changes to ensure previous one is cleaned if component doesn't unmount
 
 
   return (
@@ -102,6 +105,7 @@ export function PdfViewer(props: PdfViewerProps): React.JSX.Element {
         <div className="mt-4 border rounded-md bg-muted" style={{ height: '500px', overflow: 'hidden' }}>
           {pdfUrl ? (
             <iframe
+              key={pdfUrl} // Added key here
               src={pdfUrl}
               title="PDF Viewer"
               width="100%"
