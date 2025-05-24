@@ -1,0 +1,24 @@
+# Settings for Backend (on Cloud Run).
+# See https://firebase.google.com/docs/app-hosting/configure#cloud-run
+runConfig:
+  minInstances: 2 # You can keep this if you need at least 2 instances always running
+  maxInstances: 5 # *** CHANGE THIS TO BE <= 5 ***
+  concurrency: 100 # Keep or adjust as needed, but maxInstances is the current blocker
+  cpu: 2 # Keep or adjust as needed
+  memoryMiB: 1024 # Keep or adjust as needed
+
+
+# Environment variables and secrets.
+# env:
+  # Configure environment variables.
+  # See https://firebase.google.com/docs/app-hosting/configure#user-defined-environment
+  # - variable: MESSAGE
+  #   value: Hello world!
+  #   availability:
+  #     - BUILD
+  #     - RUNTIME
+
+  # Grant access to secrets in Cloud Secret Manager.
+  # See https://firebase.google.com/docs/app-hosting/configure#secret-parameters
+  # - variable: MY_SECRET
+  #   secret: mySecretRef
