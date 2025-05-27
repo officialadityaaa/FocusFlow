@@ -20,24 +20,22 @@ export function PdfViewer(props: PdfViewerProps): React.JSX.Element {
 
   // Effect to clear PDF URL and file input when the component's key changes (external reset)
   useEffect(() => {
-    // This effect runs when the component's key changes (due to resetSignal in parent)
     if (pdfUrl) {
       URL.revokeObjectURL(pdfUrl);
-      setPdfUrl(null); // Clear the URL for the new instance
+      setPdfUrl(null); 
     }
     setFileError(null);
     if (fileInputRef.current) {
-      fileInputRef.current.value = ""; // Clear the file input
+      fileInputRef.current.value = ""; 
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props]); // Key change is tracked by props identity change
+  }, [props]); 
 
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
       if (file.type === "application/pdf") {
-        // If a PDF was already loaded, revoke its object URL first
         if (pdfUrl) {
           URL.revokeObjectURL(pdfUrl);
         }
@@ -64,16 +62,14 @@ export function PdfViewer(props: PdfViewerProps): React.JSX.Element {
            event.target.value = "";
         }
       }
-    } else { // No file selected, or selection cancelled
-        if (pdfUrl) { // If a PDF was previously loaded and selection is cancelled
+    } else { 
+        if (pdfUrl) { 
           URL.revokeObjectURL(pdfUrl);
-          setPdfUrl(null); // Clear the currently displayed PDF
+          setPdfUrl(null); 
         }
     }
   };
   
-  // Cleanup object URL on component unmount or when pdfUrl itself changes
-  // This is important to prevent memory leaks from unused object URLs
   useEffect(() => {
     const currentPdfUrlForCleanup = pdfUrl; 
     return () => {
@@ -81,7 +77,7 @@ export function PdfViewer(props: PdfViewerProps): React.JSX.Element {
         URL.revokeObjectURL(currentPdfUrlForCleanup);
       }
     };
-  }, [pdfUrl]); // Rerun if pdfUrl changes to ensure previous one is cleaned if component doesn't unmount
+  }, [pdfUrl]);
 
 
   return (
@@ -102,15 +98,16 @@ export function PdfViewer(props: PdfViewerProps): React.JSX.Element {
           aria-label="Upload PDF file"
         />
         {fileError && <p className="text-sm text-destructive">{fileError}</p>}
-        <div className="mt-4 border rounded-md bg-muted h-[500px]"> {/* Use Tailwind for height, removed overflow: hidden */}
+        <div className="mt-4 border rounded-md bg-muted h-[500px] relative"> {/* Added position: relative */}
           {pdfUrl ? (
             <iframe
               key={pdfUrl} 
               src={pdfUrl}
               title="PDF Viewer"
-              width="100%"
-              height="100%"
-              className="block"
+              // width="100%" // Handled by Tailwind
+              // height="100%" // Handled by Tailwind
+              className="absolute top-0 left-0 w-full h-full block border-0" // Added position absolute and border-0
+              // type="application/pdf" // Generally not needed for src, but can try if issues persist
             ></iframe>
           ) : (
             <div className="flex items-center justify-center bg-muted/50 h-full">
